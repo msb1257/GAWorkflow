@@ -1,0 +1,95 @@
+name: Node.js CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        type: choice
+        description: Which Backend Application to Deploy?
+        default: abc
+        options:
+          - mangodb
+          - be
+          - fe
+      release:
+        type: choice
+        description: What's the release type?
+        default: major
+        options:
+          - major
+          - minor
+          - hotfix
+
+env:
+  MICROSERVICE: ${{ github.event.inputs.app || 'abc' }}
+  RELEASE_TYPE: ${{ github.event.inputs.release || 'minor' }}
+  EKS_CLUSTER_NAME: saradhi-eks-mumbai
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: saradhi-ecr
+  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  #SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_SARADHI}}
+  #SLACK_CHANNEL: '#saradhi-devops-info' # Add your Slack channel here
+  DEPLOYMENT_NAME: 'NODEJS-Build'
+
+jobs:
+  validate_branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if branch is main
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "This pipeline only runs for the main branch."
+          exit 1
+
+  build:
+    runs-on: ubuntu-latest
+    needs: validate_branch
+    steps:
+      # Checkout the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      # Setup NodeJs environment for build with the version mentioned at matrix format
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: 20.14
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm install
+
+      #Configure Git Credentials
+      - name: Configure Git
+        run: |
+          git config --global user.email "makkenasaradhibabudevops@gmail.com"
+          git config --global user.name "msb1257"
+
+      - name: Build
+        id: build
+        run: |
+          # Run the build command
+          if npm run build ${{ env.MICROSERVICE }} --prod; then
+            echo "Build for ${{ env.MICROSERVICE }} Executed Successfully."
+          else
+            echo "Build for ${{ env.MICROSERVICE }} Execution Failed."
+            exit 1
+          fi
+
+      #Test the target branch
+      - name: Test
+        id: test
+        run: |
+          if npm test ${{env.MICROSERVICE}} --prod ; then
+            echo "Test for ${{ env.MICROSERVICE }} Executed Successfully."
+          else
+            echo "Test for ${{ env.MICROSERVICE }} Executed Failed."
+            exit 1
+          fi
+
+      # Optionally, you can also deploy the application or upload artifacts here
+      # - name: Deploy the application
+      #   run: npm run deploy
+
