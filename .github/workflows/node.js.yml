@@ -71,7 +71,7 @@ jobs:
         id: build
         run: |
           # Run the build command
-          if npm run build ${{ env.MICROSERVICE }} --prod; then
+          if npm run build --prod; then
             echo "Build for ${{ env.MICROSERVICE }} Executed Successfully."
           else
             echo "Build for ${{ env.MICROSERVICE }} Execution Failed."
